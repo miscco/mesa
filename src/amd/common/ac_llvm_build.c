@@ -156,6 +156,8 @@ ac_get_type_size(LLVMTypeRef type)
 	switch (kind) {
 	case LLVMIntegerTypeKind:
 		return LLVMGetIntTypeWidth(type) / 8;
+	case LLVMHalfTypeKind:
+		return 2;
 	case LLVMFloatTypeKind:
 		return 4;
 	case LLVMDoubleTypeKind:
@@ -300,6 +302,9 @@ void ac_build_type_name_for_intr(LLVMTypeRef type, char *buf, unsigned bufsize)
 	default: break;
 	case LLVMIntegerTypeKind:
 		snprintf(buf, bufsize, "i%d", LLVMGetIntTypeWidth(elem_type));
+		break;
+	case LLVMHalfTypeKind:
+		snprintf(buf, bufsize, "f16");
 		break;
 	case LLVMFloatTypeKind:
 		snprintf(buf, bufsize, "f32");
