@@ -666,6 +666,15 @@ void radv_GetPhysicalDeviceFeatures2KHR(
 			features->multiviewTessellationShader = true;
 			break;
 		}
+		case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES_KHR: {
+			VkPhysicalDevice16BitStorageFeaturesKHR *features =
+				(VkPhysicalDevice16BitStorageFeaturesKHR *)ext;
+			features->storageBuffer16BitAccess = true;
+			features->uniformAndStorageBuffer16BitAccess = true;
+			features->storagePushConstant16 = true;
+			features->storageInputOutput16 = true;
+			break;
+		}
 		default:
 			break;
 		}
