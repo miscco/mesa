@@ -99,6 +99,8 @@ EXTENSIONS = [
     Extension('VK_EXT_external_memory_host',              1, 'device->rad_info.has_userptr'),
     Extension('VK_EXT_global_priority',                   1, 'device->rad_info.has_ctx_priority'),
     Extension('VK_EXT_sampler_filter_minmax',             1, 'device->rad_info.chip_class >= CIK'),
+    Extension('VK_EXT_shader_subgroup_ballot',            1, True),
+    Extension('VK_EXT_shader_subgroup_vote',              1, True),
     Extension('VK_EXT_shader_viewport_index_layer',       1, True),
     Extension('VK_EXT_shader_stencil_export',             1, True),
     Extension('VK_EXT_vertex_attribute_divisor',          1, True),
