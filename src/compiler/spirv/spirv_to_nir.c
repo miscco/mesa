@@ -3665,6 +3665,7 @@ vtn_handle_preamble_instruction(struct vtn_builder *b, SpvOp opcode,
          spv_check_supported(subgroup_basic, cap);
          break;
 
+      case SpvCapabilitySubgroupVoteKHR:
       case SpvCapabilityGroupNonUniformVote:
          spv_check_supported(subgroup_vote, cap);
          break;
@@ -4433,6 +4434,9 @@ vtn_handle_body_instruction(struct vtn_builder *b, SpvOp opcode,
    case SpvOpGroupNonUniformLogicalXor:
    case SpvOpGroupNonUniformQuadBroadcast:
    case SpvOpGroupNonUniformQuadSwap:
+   case SpvOpSubgroupAllKHR:
+   case SpvOpSubgroupAnyKHR:
+   case SpvOpSubgroupAllEqualKHR:
       vtn_handle_subgroup(b, opcode, w, count);
       break;
 
