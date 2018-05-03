@@ -989,7 +989,10 @@ void radv_GetPhysicalDeviceProperties2(
 							VK_SUBGROUP_FEATURE_BASIC_BIT |
 							VK_SUBGROUP_FEATURE_BALLOT_BIT |
 							VK_SUBGROUP_FEATURE_QUAD_BIT |
-							VK_SUBGROUP_FEATURE_VOTE_BIT;
+							VK_SUBGROUP_FEATURE_VOTE_BIT |
+							(HAVE_LLVM >= 0x0700 ?
+							 VK_SUBGROUP_FEATURE_ARITHMETIC_BIT |
+							 VK_SUBGROUP_FEATURE_CLUSTERED_BIT : 0);
 			if (pdevice->rad_info.chip_class >= VI) {
 				properties->supportedOperations |=
 							VK_SUBGROUP_FEATURE_SHUFFLE_BIT |
