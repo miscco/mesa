@@ -3425,6 +3425,27 @@ static void visit_intrinsic(struct ac_nir_context *ctx,
 	case nir_intrinsic_quad_swap_diagonal:
 		result = ac_build_quad_swizzle(&ctx->ac, get_src(ctx, instr->src[0]), 3, 2, 1 ,0);
 		break;
+	case nir_intrinsic_quad_swizzle_amd:
+		result = ac_build_quad_swizzle(&ctx->ac, get_src(ctx, instr->src[0]),
+					       nir_src_as_const_value(instr->src[1])->u32[0],
+					       nir_src_as_const_value(instr->src[1])->u32[1],
+					       nir_src_as_const_value(instr->src[1])->u32[2],
+					       nir_src_as_const_value(instr->src[1])->u32[3]);
+		break;
+	case nir_intrinsic_masked_swizzle_amd:
+		result = ac_build_ds_swizzle(&ctx->ac, get_src(ctx, instr->src[0]),
+					     ds_pattern_bitmode(nir_src_as_const_value(instr->src[1])->u32[0],
+								nir_src_as_const_value(instr->src[1])->u32[1],
+								nir_src_as_const_value(instr->src[1])->u32[2]));
+		break;
+	case nir_intrinsic_write_invocation_amd:
+		result = ac_build_writelane(&ctx->ac, get_src(ctx, instr->src[0]),
+					    get_src(ctx, instr->src[1]),
+					    get_src(ctx, instr->src[2]));
+		break;
+	case nir_intrinsic_mbcnt_amd:
+		result = ac_build_mbcnt(&ctx->ac, get_src(ctx, instr->src[0]));
+		break;
 	default:
 		fprintf(stderr, "Unknown intrinsic: ");
 		nir_print_instr(&instr->instr, stderr);
