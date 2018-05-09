@@ -69,6 +69,48 @@ vtn_handle_amd_gcn_shader_instruction(struct vtn_builder *b, SpvOp ext_opcode,
 }
 
 bool
+vtn_handle_amd_shader_ballot_instruction(struct vtn_builder *b, SpvOp ext_opcode,
+                                         const uint32_t *w, unsigned count)
+{
+   const struct glsl_type *dest_type =
+                           vtn_value(b, w[1], vtn_value_type_type)->type->type;
+   struct vtn_value *val = vtn_push_value(b, w[2], vtn_value_type_ssa);
+   val->ssa = vtn_create_ssa_value(b, dest_type);
+
+   unsigned num_args;
+   nir_intrinsic_op op;
+   switch ((enum ShaderBallotAMD)ext_opcode) {
+   case SwizzleInvocationsAMD:
+      num_args = 2;
+      op = nir_intrinsic_quad_swizzle_amd;
+      break;
+   case SwizzleInvocationsMaskedAMD:
+      num_args = 2;
+      op = nir_intrinsic_masked_swizzle_amd;
+      break;
+   case WriteInvocationAMD:
+      num_args = 3;
+      op = nir_intrinsic_write_invocation_amd;
+      break;
+   case MbcntAMD:
+      num_args = 1;
+      op = nir_intrinsic_mbcnt_amd;
+      break;
+   default:
+      unreachable("Invalid opcode");
+   }
+   nir_intrinsic_instr *intrin = nir_intrinsic_instr_create(b->nb.shader, op);
+   nir_ssa_dest_init_for_type(&intrin->instr, &intrin->dest, dest_type, NULL);
+   intrin->num_components = intrin->dest.ssa.num_components;
+   for (unsigned i = 0; i < num_args; i++)
+      intrin->src[i] = nir_src_for_ssa(vtn_ssa_value(b, w[i + 5])->def);
+
+   nir_builder_instr_insert(&b->nb, &intrin->instr);
+   val->ssa->def = &intrin->dest.ssa;
+   return true;
+}
+
+bool
 vtn_handle_amd_shader_trinary_minmax_instruction(struct vtn_builder *b, SpvOp ext_opcode,
                                                  const uint32_t *w, unsigned count)
 {
