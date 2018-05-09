@@ -312,6 +312,9 @@ struct radv_physical_device {
 	/* Whether LOAD_CONTEXT_REG packets are supported. */
 	bool has_load_ctx_reg_pkt;
 
+	/* Whether to enable the AMD_shader_ballot extension */
+	bool use_shader_ballot;
+
 	/* Whether to use the experimental compiler backend */
 	bool use_aco;
 
