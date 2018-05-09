@@ -52,6 +52,7 @@ struct spirv_supported_capabilities {
    bool subgroup_quad;
    bool subgroup_shuffle;
    bool subgroup_vote;
+   bool shader_ballot;
    bool gcn_shader;
    bool trinary_minmax;
    bool descriptor_array_dynamic_indexing;
