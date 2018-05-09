@@ -68,7 +68,8 @@ enum {
 	RADV_PERFTEST_OUT_OF_ORDER   =   0x8,
 	RADV_PERFTEST_DCC_MSAA       =  0x10,
 	RADV_PERFTEST_BO_LIST        =  0x20,
-	RADV_PERFTEST_ACO            =  0x40,
+	RADV_PERFTEST_SHADER_BALLOT  =  0x40,
+	RADV_PERFTEST_ACO            =  0x80,
 };
 
 bool
