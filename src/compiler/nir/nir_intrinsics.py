@@ -254,6 +254,12 @@ intrinsic("inclusive_scan", src_comp=[0], dest_comp=0, indices=[REDUCTION_OP],
 intrinsic("exclusive_scan", src_comp=[0], dest_comp=0, indices=[REDUCTION_OP],
           flags=[CAN_ELIMINATE])
 
+# AMD shader ballot operations
+intrinsic("quad_swizzle_amd", src_comp=[0, 4], dest_comp=0, flags=[CAN_ELIMINATE])
+intrinsic("masked_swizzle_amd", src_comp=[0, 3], dest_comp=0, flags=[CAN_ELIMINATE])
+intrinsic("write_invocation_amd", src_comp=[0, 0, 1], dest_comp=0, flags=[CAN_ELIMINATE])
+intrinsic("mbcnt_amd", src_comp=[1], dest_comp=1, flags=[CAN_ELIMINATE])
+
 # Basic Geometry Shader intrinsics.
 #
 # emit_vertex implements GLSL's EmitStreamVertex() built-in.  It takes a single
