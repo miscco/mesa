@@ -163,6 +163,7 @@ gcm_pin_instructions_block(nir_block *block, struct gcm_state *state)
       case nir_instr_type_jump:
       case nir_instr_type_ssa_undef:
       case nir_instr_type_phi:
+      case nir_instr_type_deref:
          instr->pass_flags = GCM_INSTR_PINNED;
          break;
 
