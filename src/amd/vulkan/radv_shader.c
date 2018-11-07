@@ -680,9 +680,11 @@ shader_variant_create(struct radv_device *device,
 				chip_family, tm_options);
 
 	bool isLLVM = true;
+	bool aco_vs = getenv("ACO_VS");
 	bool use_aco = device->instance->perftest_flags & RADV_PERFTEST_ACO &&
 		       (shaders[0]->info.stage == MESA_SHADER_FRAGMENT ||
-		        shaders[0]->info.stage == MESA_SHADER_COMPUTE);
+		        shaders[0]->info.stage == MESA_SHADER_COMPUTE ||
+		        (shaders[0]->info.stage == MESA_SHADER_VERTEX && aco_vs && !options->key.vs.as_ls && !options->key.vs.as_es));
 	if (gs_copy_shader) {
 		assert(shader_count == 1);
 		radv_compile_gs_copy_shader(&ac_llvm, *shaders, &binary,
