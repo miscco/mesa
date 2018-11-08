@@ -101,7 +101,7 @@ visit_alu(bool *divergent, nir_alu_instr *instr)
 }
 
 static bool
-visit_intrinsic(bool *divergent, nir_intrinsic_instr *instr)
+visit_intrinsic(nir_shader *shader, bool *divergent, nir_intrinsic_instr *instr)
 {
    if (!nir_intrinsic_infos[instr->intrinsic].has_dest)
       return false;
@@ -126,6 +126,8 @@ visit_intrinsic(bool *divergent, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_work_group_id:
    case nir_intrinsic_load_num_work_groups:
    case nir_intrinsic_get_buffer_size:
+   case nir_intrinsic_load_base_instance:
+   case nir_intrinsic_load_first_vertex:
       is_divergent = false;
       break;
 
@@ -165,9 +167,11 @@ visit_intrinsic(bool *divergent, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_barycentric_centroid:
    case nir_intrinsic_load_frag_coord:
    case nir_intrinsic_load_layer_id:
-   case nir_intrinsic_load_view_index:
    case nir_intrinsic_load_invocation_id:
    case nir_intrinsic_load_local_invocation_index:
+   case nir_intrinsic_load_vertex_id_zero_base:
+   case nir_intrinsic_load_vertex_id:
+   case nir_intrinsic_load_instance_id:
    case nir_intrinsic_ssbo_atomic_add:
    case nir_intrinsic_ssbo_atomic_imin:
    case nir_intrinsic_ssbo_atomic_umin:
@@ -199,6 +203,9 @@ visit_intrinsic(bool *divergent, nir_intrinsic_instr *instr)
    case nir_intrinsic_shared_atomic_comp_swap:
    default:
       is_divergent = true;
+      break;
+   case nir_intrinsic_load_view_index:
+      is_divergent = shader->info.stage == MESA_SHADER_FRAGMENT;
       break;
    }
 
@@ -410,7 +417,7 @@ nir_divergence_analysis(nir_shader *shader)
             has_changed |= visit_alu(t, nir_instr_as_alu(instr));
             break;
          case nir_instr_type_intrinsic:
-            has_changed |= visit_intrinsic(t, nir_instr_as_intrinsic(instr));
+            has_changed |= visit_intrinsic(shader, t, nir_instr_as_intrinsic(instr));
             break;
          case nir_instr_type_tex:
             has_changed |= visit_tex(t, nir_instr_as_tex(instr));
