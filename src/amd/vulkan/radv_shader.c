@@ -605,8 +605,7 @@ static LLVMTargetMachineRef radv_create_target_machine(enum radeon_family family
 }
 #include <time.h>
 #define NANOS 1000000000LL
-// FIXME the llvm ir & disasm strings prevent disabling llvm compilation
-#define ACO_COMPILE_TIME 1
+#define ACO_COMPILE_TIME 0
 static double total_llvm = 0;
 static double total_aco = 0;
 static unsigned num = 0;
@@ -646,7 +645,7 @@ shader_variant_create(struct radv_device *device,
 	if (device->instance->perftest_flags & RADV_PERFTEST_SISCHED)
 		tm_options |= AC_TM_SISCHED;
 	tm = radv_create_target_machine(chip_family, tm_options, NULL);
-
+	bool isLLVM = true;
 	if (gs_copy_shader) {
 		assert(shader_count == 1);
 		radv_compile_gs_copy_shader(tm, *shaders, &binary,
@@ -663,17 +662,19 @@ shader_variant_create(struct radv_device *device,
 						options);
 			clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &user2);
 
-
 			fprintf(stderr, "%3d: ", num++);
 			double user_elapsed = (user2.tv_sec*NANOS + user2.tv_nsec - (user1.tv_sec*NANOS + user1.tv_nsec)) / (double) (NANOS / 1000);
 			total_llvm += user_elapsed;
 			fprintf(stderr, "LLVM CPU time: %8.4fms\t|\ttotal: %8.4fms\t\t||\t", user_elapsed, total_llvm);
 			clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &user1);
 #endif
+			assert(shader_count == 1);
+			radv_nir_shader_info_pass(shaders[0], options, &variant->info.info);
 			aco_compile_shader(shaders[0], &variant->config,
 				           &binary, &variant->info, options);
-
+			isLLVM = false;
 #if ACO_COMPILE_TIME
+			isLLVM = true;
 			clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &user2);
 			user_elapsed = (user2.tv_sec*NANOS + user2.tv_nsec - (user1.tv_sec*NANOS + user1.tv_nsec)) / (double) (NANOS / 1000);
 			total_aco += user_elapsed;
@@ -695,10 +696,13 @@ shader_variant_create(struct radv_device *device,
 		*code_size_out = binary.code_size;
 	} else
 		free(binary.code);
-	free(binary.config);
-	free(binary.rodata);
-	free(binary.global_symbol_offsets);
-	free(binary.relocs);
+
+	if (isLLVM) {
+		free(binary.config);
+		free(binary.rodata);
+		free(binary.global_symbol_offsets);
+		free(binary.relocs);
+	}
 	variant->ref_count = 1;
 
 	if (device->keep_shader_info) {
