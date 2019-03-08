@@ -101,15 +101,6 @@ public:
 static void visit_cf_list(struct isel_context *ctx,
                           struct exec_list *list);
 
-void set_ssa_temp(struct isel_context *ctx, nir_ssa_def *def, Temp tmp)
-{
-   RegClass rc = ctx->reg_class[def->index];
-   assert(rc == tmp.regClass());
-   assert(ctx->allocated.find(def->index) == ctx->allocated.end());
-
-   ctx->allocated.insert({def->index, tmp.id()});
-}
-
 Temp get_ssa_temp(struct isel_context *ctx, nir_ssa_def *def)
 {
    RegClass rc = ctx->reg_class[def->index];
@@ -4528,7 +4519,9 @@ void visit_intrinsic(isel_context *ctx, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_view_index:
    case nir_intrinsic_load_layer_id: {
       if (instr->intrinsic == nir_intrinsic_load_view_index && ctx->stage == MESA_SHADER_VERTEX) {
-         set_ssa_temp(ctx, &instr->dest.ssa, ctx->view_index);
+         Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
+         aco_ptr<Instruction> mov{create_s_mov(Definition(dst), Operand(ctx->view_index))};
+         ctx->block->instructions.emplace_back(std::move(mov));
          break;
       }
 
@@ -4804,16 +4797,22 @@ void visit_intrinsic(isel_context *ctx, nir_intrinsic_instr *instr)
       break;
    }
    case nir_intrinsic_load_vertex_id_zero_base:
-      set_ssa_temp(ctx, &instr->dest.ssa, ctx->vertex_id);
+      emit_v_mov(ctx, ctx->vertex_id, get_ssa_temp(ctx, &instr->dest.ssa));
       break;
-   case nir_intrinsic_load_first_vertex:
-      set_ssa_temp(ctx, &instr->dest.ssa, ctx->base_vertex);
+   case nir_intrinsic_load_first_vertex: {
+      Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
+      aco_ptr<Instruction> mov{create_s_mov(Definition(dst), Operand(ctx->base_vertex))};
+      ctx->block->instructions.emplace_back(std::move(mov));
       break;
-   case nir_intrinsic_load_base_instance:
-      set_ssa_temp(ctx, &instr->dest.ssa, ctx->start_instance);
+   }
+   case nir_intrinsic_load_base_instance: {
+      Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
+      aco_ptr<Instruction> mov{create_s_mov(Definition(dst), Operand(ctx->start_instance))};
+      ctx->block->instructions.emplace_back(std::move(mov));
       break;
+   }
    case nir_intrinsic_load_instance_id:
-      set_ssa_temp(ctx, &instr->dest.ssa, ctx->instance_id);
+      emit_v_mov(ctx, ctx->instance_id, get_ssa_temp(ctx, &instr->dest.ssa));
       break;
    default:
       fprintf(stderr, "Unimplemented intrinsic instr: ");
