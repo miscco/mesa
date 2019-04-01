@@ -481,6 +481,7 @@ static const struct debug_control radv_perftest_options[] = {
 	{"localbos", RADV_PERFTEST_LOCAL_BOS},
 	{"dccmsaa", RADV_PERFTEST_DCC_MSAA},
 	{"bolist", RADV_PERFTEST_BO_LIST},
+	{"aco", RADV_PERFTEST_ACO},
 	{NULL, 0}
 };
 
@@ -576,7 +577,8 @@ VkResult radv_CreateInstance(
 
 	instance->perftest_flags = parse_debug_string(getenv("RADV_PERFTEST"),
 						   radv_perftest_options);
-
+	#warning "ACO enabled by default"
+	instance->perftest_flags |= RADV_PERFTEST_ACO;
 
 	if (instance->debug_flags & RADV_DEBUG_STARTUP)
 		radv_logi("Created an instance");
