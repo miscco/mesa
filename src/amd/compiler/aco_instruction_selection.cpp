@@ -392,6 +392,22 @@ void expand_vector(isel_context* ctx, Temp vec_src, Temp dst, unsigned num_compo
    ctx->allocated_vec.emplace(dst.id(), elems);
 }
 
+void swizzle_vector(isel_context* ctx, Temp vec_src, Temp dst, unsigned *swizzle)
+{
+   assert(vec_src.id() != dst.id());
+
+   aco_ptr<Instruction> vec{create_instruction<Instruction>(aco_opcode::p_create_vector, Format::PSEUDO, dst.size(), 1)};
+   vec->getDefinition(0) = Definition(dst);
+   assert(dst.size() <= 4);
+   std::array<Temp,4> elems;
+   for (unsigned i = 0; i < dst.size(); i++) {
+      vec->getOperand(i) = Operand(emit_extract_vector(ctx, vec_src, swizzle[i], getRegClass(vec_src.type(), 1)));
+      elems[i] = vec->getOperand(i).getTemp();
+   }
+   ctx->block->instructions.emplace_back(std::move(vec));
+   ctx->allocated_vec.emplace(dst.id(), elems);
+}
+
 Temp as_divergent_bool(isel_context *ctx, Temp val, bool vcc_hint)
 {
    if (val.regClass() == s2) {
@@ -2701,6 +2717,34 @@ void visit_load_interpolated_input(isel_context *ctx, nir_intrinsic_instr *instr
    }
 }
 
+unsigned get_num_channels_from_data_format(unsigned data_format)
+{
+	switch (data_format) {
+	case V_008F0C_BUF_DATA_FORMAT_8:
+	case V_008F0C_BUF_DATA_FORMAT_16:
+	case V_008F0C_BUF_DATA_FORMAT_32:
+		return 1;
+	case V_008F0C_BUF_DATA_FORMAT_8_8:
+	case V_008F0C_BUF_DATA_FORMAT_16_16:
+	case V_008F0C_BUF_DATA_FORMAT_32_32:
+		return 2;
+	case V_008F0C_BUF_DATA_FORMAT_10_11_11:
+	case V_008F0C_BUF_DATA_FORMAT_11_11_10:
+	case V_008F0C_BUF_DATA_FORMAT_32_32_32:
+		return 3;
+	case V_008F0C_BUF_DATA_FORMAT_8_8_8_8:
+	case V_008F0C_BUF_DATA_FORMAT_10_10_10_2:
+	case V_008F0C_BUF_DATA_FORMAT_2_10_10_10:
+	case V_008F0C_BUF_DATA_FORMAT_16_16_16_16:
+	case V_008F0C_BUF_DATA_FORMAT_32_32_32_32:
+		return 4;
+	default:
+		break;
+	}
+
+	return 4;
+}
+
 void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
 {
    Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
@@ -2721,10 +2765,24 @@ void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
       }
 
       unsigned location = nir_intrinsic_base(instr) / 4 - VERT_ATTRIB_GENERIC0 + offset;
+      unsigned attrib_binding = ctx->options->key.vs.vertex_attribute_bindings[location];
+      uint32_t attrib_offset = ctx->options->key.vs.vertex_attribute_offsets[location];
+      uint32_t attrib_stride = ctx->options->key.vs.vertex_attribute_strides[location];
+      unsigned attrib_format = ctx->options->key.vs.vertex_attribute_formats[location];
+
+      unsigned dfmt = attrib_format & 0xf;
+      unsigned nfmt = (attrib_format >> 4) & 0x7;
+      unsigned num_dfmt_channels = get_num_channels_from_data_format(dfmt);
+      unsigned mask = nir_ssa_def_components_read(&instr->dest.ssa);
+      unsigned num_channels = MIN2(util_last_bit(mask), num_dfmt_channels);
+      bool post_shuffle = ctx->options->key.vs.post_shuffle & (1 << location);
+      if (post_shuffle)
+         num_channels = MAX2(num_channels, 3);
+
       aco_ptr<Instruction> load;
       load.reset(create_instruction<SMEM_instruction>(aco_opcode::s_load_dwordx4, Format::SMEM, 2, 1));
       load->getOperand(0) = Operand(vertex_buffers);
-      load->getOperand(1) = Operand((uint32_t) location * 16u);
+      load->getOperand(1) = Operand((uint32_t) attrib_binding * 16u);
       Temp list = {ctx->program->allocateId(), s4};
       load->getDefinition(0) = Definition(list);
       ctx->block->instructions.emplace_back(std::move(load));
@@ -2752,33 +2810,86 @@ void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
          emit_v_add32(ctx, index, Operand(ctx->base_vertex), Operand(ctx->vertex_id));
       }
 
+		if (attrib_stride != 0 && attrib_offset > attrib_stride) {
+         Temp new_index{ctx->program->allocateId(), v1};
+         emit_v_add32(ctx, new_index, Operand(attrib_offset / attrib_stride), Operand(index));
+         index = new_index;
+			attrib_offset = attrib_offset % attrib_stride;
+		}
+
+      Operand soffset(0u);
+      if (attrib_offset >= 4096) {
+         soffset = Operand((Temp){ctx->program->allocateId(), s1});
+         aco_ptr<Instruction> mov{create_s_mov(Definition(soffset.getTemp()), Operand((uint32_t) attrib_offset))};
+         ctx->block->instructions.emplace_back(std::move(mov));
+         attrib_offset = 0;
+      }
+
       aco_opcode opcode;
-      switch (dst.size()) {
+      switch (num_channels) {
       case 1:
-         opcode = aco_opcode::buffer_load_format_x;
+         opcode = aco_opcode::tbuffer_load_format_x;
          break;
       case 2:
-         opcode = aco_opcode::buffer_load_format_xy;
+         opcode = aco_opcode::tbuffer_load_format_xy;
          break;
       case 3:
-         opcode = aco_opcode::buffer_load_format_xyz;
+         opcode = aco_opcode::tbuffer_load_format_xyz;
          break;
       case 4:
-         opcode = aco_opcode::buffer_load_format_xyzw;
+         opcode = aco_opcode::tbuffer_load_format_xyzw;
          break;
       default:
          unreachable("Unimplemented load_input vector size");
       }
 
-      aco_ptr<MUBUF_instruction> mubuf{create_instruction<MUBUF_instruction>(opcode, Format::MUBUF, 3, 1)};
+      Temp tmp = {ctx->program->allocateId(), getRegClass(vgpr, num_channels)};
+
+      aco_ptr<MTBUF_instruction> mubuf{create_instruction<MTBUF_instruction>(opcode, Format::MTBUF, 3, 1)};
       mubuf->getOperand(0) = Operand(index);
-      mubuf->getOperand(1) = Operand(list); /* resource constant */
-      mubuf->getOperand(2) = Operand((uint32_t) 0); /* soffset */
-      mubuf->getDefinition(0) = Definition(dst);
+      mubuf->getOperand(1) = Operand(list);
+      mubuf->getOperand(2) = soffset;
+      mubuf->getDefinition(0) = Definition(tmp);
       mubuf->idxen = true;
+      mubuf->dfmt = dfmt;
+      mubuf->nfmt = nfmt;
+      assert(attrib_offset < 4096);
+      mubuf->offset = attrib_offset;
       ctx->block->instructions.emplace_back(std::move(mubuf));
 
-      emit_split_vector(ctx, dst, dst.size());
+      emit_split_vector(ctx, tmp, tmp.size());
+
+      if (post_shuffle) {
+         assert(tmp.id() != dst.id());
+         unsigned swizzle[4] = {2, 1, 0, 3};
+         Temp new_tmp{ctx->program->allocateId(), getRegClass(vgpr, num_channels)};
+         swizzle_vector(ctx, tmp, new_tmp, swizzle);
+         tmp = new_tmp;
+      }
+
+      if (tmp.size() != dst.size()) {
+         bool is_float = nfmt != V_008F0C_BUF_NUM_FORMAT_UINT &&
+                         nfmt != V_008F0C_BUF_NUM_FORMAT_SINT;
+
+         aco_ptr<Instruction> vec{create_instruction<Instruction>(aco_opcode::p_create_vector, Format::PSEUDO, dst.size(), 1)};
+         for (unsigned i = 0; i < dst.size(); i++) {
+            if (i < num_channels)
+               vec->getOperand(i) = Operand(emit_extract_vector(ctx, tmp, i, v1));
+            else if (is_float && i == 3)
+               vec->getOperand(i) = Operand(0x3f800000u);
+            else if (!is_float && i == 3)
+               vec->getOperand(i) = Operand(1u);
+            else
+               vec->getOperand(i) = Operand(0u);
+         }
+         vec->getDefinition(0) = Definition(dst);
+         ctx->block->instructions.emplace_back(std::move(vec));
+      } else {
+         aco_ptr<Instruction> vec{create_instruction<Instruction>(aco_opcode::p_create_vector, Format::PSEUDO, 1, 1)};
+         vec->getOperand(0) = Operand(tmp);
+         vec->getDefinition(0) = Definition(dst);
+         ctx->block->instructions.emplace_back(std::move(vec));
+      }
 
       unsigned alpha_adjust = (ctx->options->key.vs.alpha_adjust >> (location * 2)) & 3;
       if (alpha_adjust != RADV_ALPHA_ADJUST_NONE) {
