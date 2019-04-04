@@ -448,6 +448,8 @@ void label_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
       }
       if (instr->getDefinition(0).getTemp().size() == instr->num_operands)
          ctx.info[instr->getDefinition(0).tempId()].set_vec(instr.get());
+      if (instr->num_operands == 1)
+         ctx.info[instr->getDefinition(0).tempId()].set_temp(instr->getOperand(0).getTemp());
       break;
    }
    case aco_opcode::p_split_vector: {
