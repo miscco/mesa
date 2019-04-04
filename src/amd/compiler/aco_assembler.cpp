@@ -155,6 +155,28 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
       out.push_back(encoding);
       break;
    }
+   case Format::MTBUF: {
+      MTBUF_instruction* mtbuf = static_cast<MTBUF_instruction*>(instr);
+      uint32_t encoding = (0b111010 << 26);
+      encoding |= opcode_infos[(int)instr->opcode].opcode << 15;
+      encoding |= (mtbuf->glc ? 1 : 0) << 14;
+      encoding |= (mtbuf->idxen ? 1 : 0) << 13;
+      encoding |= (mtbuf->offen ? 1 : 0) << 12;
+      encoding |= 0x0FFF & mtbuf->offset;
+      encoding |= (0xF & mtbuf->dfmt) << 19;
+      encoding |= (0x7 & mtbuf->nfmt) << 23;
+      out.push_back(encoding);
+      encoding = 0;
+      encoding |= instr->getOperand(2).physReg().reg << 24;
+      encoding |= (mtbuf->tfe ? 1 : 0) << 23;
+      encoding |= (mtbuf->slc ? 1 : 0) << 22;
+      encoding |= (instr->getOperand(1).physReg().reg >> 2) << 16;
+      unsigned reg = instr->num_operands > 3 ? instr->getOperand(3).physReg().reg : instr->getDefinition(0).physReg().reg;
+      encoding |= (0xFF & reg) << 8;
+      encoding |= (0xFF & instr->getOperand(0).physReg().reg);
+      out.push_back(encoding);
+      break;
+   }
    case Format::MIMG: {
       MIMG_instruction* mimg = static_cast<MIMG_instruction*>(instr);
       uint32_t encoding = (0b111100 << 26);

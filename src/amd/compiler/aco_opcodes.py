@@ -1213,6 +1213,30 @@ for (code, name) in MUBUF:
     opcode(name, code, Format.MUBUF)
 
 
+# MTBUF instructions:
+
+MTBUF = {
+   (0, "tbuffer_load_format_x"),
+   (1, "tbuffer_load_format_xy"),
+   (2, "tbuffer_load_format_xyz"),
+   (3, "tbuffer_load_format_xyzw"),
+   (4, "tbuffer_store_format_x"),
+   (5, "tbuffer_store_format_xy"),
+   (6, "tbuffer_store_format_xyz"),
+   (7, "tbuffer_store_format_xyzw"),
+   (8, "tbuffer_load_format_d16_x"),
+   (9, "tbuffer_load_format_d16_xy"),
+   (10, "tbuffer_load_format_d16_xyz"),
+   (11, "tbuffer_load_format_d16_xyzw"),
+   (12, "tbuffer_store_format_d16_x"),
+   (13, "tbuffer_store_format_d16_xy"),
+   (14, "tbuffer_store_format_d16_xyz"),
+   (15, "tbuffer_store_format_d16_xyzw"),
+}
+for (code, name) in MTBUF:
+    opcode(name, code, Format.MTBUF)
+
+
 MIMG = [
    (0, "image_load"),
    (1, "image_load_mip"),

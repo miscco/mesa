@@ -585,6 +585,7 @@ bool gen(Instruction* instr, wait_ctx& ctx)
       break;
    }
    case Format::MUBUF:
+   case Format::MTBUF:
    case Format::MIMG: {
       /* increase counter for all entries of same wait_type */
       for (auto& e : ctx.vgpr_map)
