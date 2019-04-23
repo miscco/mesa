@@ -811,31 +811,30 @@ void register_allocation(Program *program, std::vector<std::set<Temp>> live_out_
          Definition& definition = phi->getDefinition(0);
          if (definition.isKill())
             continue;
-         assert(!definition.isFixed());
+
          if (affinities.find(definition.tempId()) != affinities.end() &&
              ctx.assignments.find(affinities[definition.tempId()]) != ctx.assignments.end()) {
             assert(ctx.assignments[affinities[definition.tempId()]].second == phi->getDefinition(0).regClass());
             PhysReg reg = ctx.assignments[affinities[definition.tempId()]].first;
-            if (reg == scc) {
-               bool can_use_scc = true;
-               for (unsigned i = 0; i < phi->num_operands; i++) {
+            assert(!definition.isFixed() || reg == exec);
+            bool try_use_special_reg = reg == scc || (reg == exec && !definition.isFixed());
+            if (try_use_special_reg) {
+               for (unsigned i = 0; try_use_special_reg && i < phi->num_operands; i++) {
                   if (!phi->getOperand(i).isTemp() ||
                       ctx.assignments.find(phi->getOperand(i).tempId()) == ctx.assignments.end() ||
-                      !(ctx.assignments[phi->getOperand(i).tempId()].first == scc)) {
-                     can_use_scc = false;
-                     break;
+                      !(ctx.assignments[phi->getOperand(i).tempId()].first == reg)) {
+                     try_use_special_reg = false;
                   }
                }
-               if (!can_use_scc)
+               if (!try_use_special_reg)
                   continue;
             }
             bool reg_free = true;
-            for (unsigned i = reg.reg; i < reg.reg + definition.size(); i++) {
-               if (register_file[i] != 0) {
+            for (unsigned i = reg.reg; reg_free && i < reg.reg + definition.size(); i++) {
+               if (register_file[i] != 0)
                   reg_free = false;
-                  break;
-               }
             }
+            assert(reg_free || (!try_use_special_reg && !definition.isFixed()));
             if (reg_free) {
                definition.setFixed(reg);
                for (unsigned i = 0; i < definition.size(); i++)
