@@ -56,6 +56,7 @@ void aco_compile_shader(struct nir_shader *shader, struct ac_shader_config* conf
 
    /* Boolean phi lowering */
    aco::lower_bool_phis(program.get());
+   aco::insert_exec_mask(program.get());
    //std::cerr << "After Boolean Phi Lowering:\n";
    //aco_print_program(program.get(), stderr);
 
