@@ -688,7 +688,7 @@ void add_branch_code(exec_ctx& ctx, std::unique_ptr<Block>& block)
       if (!ctx.loop.size()) {
          /* check if the successor is the merge block, otherwise set exec to 0 */
          // TODO: this could be done better by directly branching to the merge block
-         Block* succ = block->linear_successors[1]->linear_successors[0];
+         Block* succ = block->linear_successors[0];
          if (!(succ->kind & block_kind_invert || succ->kind & block_kind_merge)) {
             ctx.info[idx].exec.back().first = bld.sop1(aco_opcode::s_mov_b64, bld.def(s2, exec), Operand(0u));
          }
