@@ -217,7 +217,6 @@ void calculate_wqm_needs(exec_ctx& exec_ctx)
    bool preserve_wqm = false;
    for (int i = exec_ctx.program->blocks.size() - 1; i >= 0; i--) {
       exec_ctx.info[i].ever_again_needs = ever_again_needs;
-      ever_again_needs |= exec_ctx.info[i].block_needs;
 
       /* if discard is used somewhere in nested CF, we need to preserve the WQM mask */
       if (preserve_wqm && ever_again_needs & WQM &&
@@ -229,7 +228,9 @@ void calculate_wqm_needs(exec_ctx& exec_ctx)
           exec_ctx.program->blocks[i]->kind & block_kind_discard)
          preserve_wqm = true;
       if (exec_ctx.program->blocks[i]->kind & block_kind_uses_load_helper)
-         exec_ctx.info[i].ever_again_needs |= Exact;
+         exec_ctx.info[i].block_needs |= Exact;
+
+      ever_again_needs |= exec_ctx.info[i].block_needs;
    }
    exec_ctx.handle_wqm = true;
 }
