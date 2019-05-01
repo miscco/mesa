@@ -2368,7 +2368,7 @@ void visit_discard_if(isel_context *ctx, nir_intrinsic_instr *instr)
 {
    Builder bld(ctx->program, ctx->block);
    Temp src = as_divergent_bool(ctx, get_ssa_temp(ctx, instr->src[0].ssa), false);
-   bld.sop2(aco_opcode::s_and_b64, bld.def(s2), bld.def(s1, scc), src, Operand(exec, s2));
+   src = bld.sop2(aco_opcode::s_and_b64, bld.def(s2), bld.def(s1, scc), src, Operand(exec, s2));
    bld.pseudo(aco_opcode::p_discard_if, src);
    ctx->block->kind |= block_kind_uses_discard_if;
    return;
