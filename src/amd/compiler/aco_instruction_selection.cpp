@@ -2374,10 +2374,18 @@ void visit_discard_if(isel_context *ctx, nir_intrinsic_instr *instr)
    return;
 }
 
-void visit_discard(isel_context* ctx)
+void visit_discard(isel_context* ctx, nir_intrinsic_instr *instr)
 {
-   /* we handle discards the same way as jump instructions */
    Builder bld(ctx->program, ctx->block);
+
+   /* it can currently happen that NIR doesn't remove the unreachable code */
+   if (!nir_instr_is_last(&instr->instr)) {
+      bld.pseudo(aco_opcode::p_discard_if, Operand(exec, s2));
+      ctx->block->kind |= block_kind_uses_discard_if;
+      return;
+   }
+
+   /* we handle discards the same way as jump instructions */
    append_logical_end(ctx->block);
 
    if (ctx->block->loop_nest_depth) {
@@ -3884,7 +3892,7 @@ void visit_intrinsic(isel_context *ctx, nir_intrinsic_instr *instr)
       visit_load_resource(ctx, instr);
       break;
    case nir_intrinsic_discard:
-      visit_discard(ctx);
+      visit_discard(ctx, instr);
       break;
    case nir_intrinsic_discard_if:
       visit_discard_if(ctx, instr);
