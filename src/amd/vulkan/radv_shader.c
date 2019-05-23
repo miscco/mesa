@@ -786,6 +786,7 @@ shader_variant_create(struct radv_device *device,
 				clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &user1);
 			}
 			assert(shader_count == 1);
+			radv_nir_shader_info_init(&variant->info.info);
 			radv_nir_shader_info_pass(shaders[0], options, &variant->info.info);
 			aco_compile_shader(shaders[0], &variant->config,
 				           &binary, &variant->info, options);
