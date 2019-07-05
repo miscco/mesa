@@ -25,6 +25,7 @@
 
 #include "aco_ir.h"
 
+#include <algorithm>
 #include <map>
 
 namespace aco {
@@ -69,14 +70,7 @@ void insert_parallelcopies(ssa_elimination_ctx& ctx)
 {
    /* insert the parallelcopies from logical phis before p_logical_end */
    for (auto&& entry : ctx.logical_phi_info) {
-      Block& block = ctx.program->blocks[entry.first];
-      unsigned idx = block.instructions.size() - 1;
-      while (block.instructions[idx]->opcode != aco_opcode::p_logical_end) {
-         assert(idx > 0);
-         idx--;
-      }
-
-      std::vector<aco_ptr<Instruction>>::iterator it = std::next(block.instructions.begin(), idx);
+      Block& block = ctx.program->blocks[entry.first];    
       aco_ptr<Pseudo_instruction> pc{create_instruction<Pseudo_instruction>(aco_opcode::p_parallelcopy, Format::PSEUDO, entry.second.size(), entry.second.size())};
       unsigned i = 0;
       for (std::pair<Definition, Operand>& pair : entry.second)
@@ -87,15 +81,17 @@ void insert_parallelcopies(ssa_elimination_ctx& ctx)
       }
       /* this shouldn't be needed since we're only copying vgprs */
       pc->tmp_in_scc = false;
+      auto it = std::find_if(block.instructions.cbegin(),
+                             block.instructions.cend(),
+                             [](const aco_ptr<Instruction>& instr) { return insr->opcode == aco_opcode::p_logical_end; });
+      assert(it != block.instructions.end());
       block.instructions.insert(it, std::move(pc));
    }
 
    /* insert parallelcopies for the linear phis at the end of blocks just before the branch */
    for (auto&& entry : ctx.linear_phi_info) {
       Block& block = ctx.program->blocks[entry.first];
-      std::vector<aco_ptr<Instruction>>::iterator it = block.instructions.end();
-      --it;
-      assert((*it)->format == Format::PSEUDO_BRANCH);
+      assert(block.back()->format == Format::PSEUDO_BRANCH);
       aco_ptr<Pseudo_instruction> pc{create_instruction<Pseudo_instruction>(aco_opcode::p_parallelcopy, Format::PSEUDO, entry.second.size(), entry.second.size())};
       unsigned i = 0;
       for (std::pair<Definition, Operand>& pair : entry.second)
@@ -106,7 +102,7 @@ void insert_parallelcopies(ssa_elimination_ctx& ctx)
       }
       pc->tmp_in_scc = block.scc_live_out;
       pc->scratch_sgpr = block.scratch_sgpr;
-      block.instructions.insert(it, std::move(pc));
+      block.instructions.insert(--block.instructions.end(), std::move(pc));
    }
 }
 
