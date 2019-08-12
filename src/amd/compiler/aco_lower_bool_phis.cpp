@@ -25,6 +25,7 @@
  *
  */
 
+#include <algorithm>
 #include <map>
 
 #include "aco_ir.h"
@@ -206,34 +207,27 @@ void lower_linear_bool_phi(Program *program, Block *block, aco_ptr<Instruction>&
 void lower_bool_phis(Program* program)
 {
    for (Block& block : program->blocks) {
-      std::vector<aco_ptr<Instruction>> instructions;
-      std::vector<aco_ptr<Instruction>> non_phi;
-      instructions.swap(block.instructions);
-      block.instructions.reserve(instructions.size());
-      unsigned i = 0;
-      for (; i < instructions.size(); i++)
-      {
-         aco_ptr<Instruction>& phi = instructions[i];
-         if (phi->opcode != aco_opcode::p_phi && phi->opcode != aco_opcode::p_linear_phi)
-            break;
-         if (phi->opcode == aco_opcode::p_phi && phi->definitions[0].regClass() == s2) {
-            non_phi.emplace_back(std::move(lower_divergent_bool_phi(program, &block, phi)));
-         } else if (phi->opcode == aco_opcode::p_linear_phi && phi->definitions[0].regClass() == s1) {
+      /* find the first non phi instruction */
+      auto IsPhi = [] (aco_ptr<Instruction>& phi) -> bool { return is_phi(phi); };
+      auto end = std::find_if_not(block.instructions.begin(), block.instructions.end(), IsPhi);
+
+      /* partition divergent boolean phi's to the back */
+      auto IsNotDivergentBooleanPhi = [] (aco_ptr<Instruction>& phi) -> bool {
+         return !(phi->opcode == aco_opcode::p_phi && phi->definitions[0].regClass() == s2);
+      };
+      std::stable_partition(block.instructions.begin(), end, IsNotDivergentBooleanPhi);
+
+      /* lower the boolean phi's */
+      const size_t end_size = std::distance(block.instructions.begin(), end);
+      for (size_t i = 0; i < end_size; ++i) {
+         aco_ptr<Instruction>& phi = block.instructions[i];
+         if (phi->opcode == aco_opcode::p_linear_phi && phi->definitions[0].regClass() == s1) {
             /* if it's a valid non-boolean phi, this should be a no-op */
             lower_linear_bool_phi(program, &block, phi);
-            block.instructions.emplace_back(std::move(phi));
-         } else {
-            block.instructions.emplace_back(std::move(phi));
          }
-      }
-      for (auto&& instr : non_phi) {
-         assert(instr->opcode != aco_opcode::p_phi && instr->opcode != aco_opcode::p_linear_phi);
-         block.instructions.emplace_back(std::move(instr));
-      }
-      for (; i < instructions.size(); i++) {
-         aco_ptr<Instruction> instr = std::move(instructions[i]);
-         assert(instr->opcode != aco_opcode::p_phi && instr->opcode != aco_opcode::p_linear_phi);
-         block.instructions.emplace_back(std::move(instr));
+         else if (!IsNotDivergentBooleanPhi(phi)) {
+            phi = lower_divergent_bool_phi(program, &block, phi);
+         }
       }
    }
 }
